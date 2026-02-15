@@ -2,12 +2,14 @@ import Image from "next/image";
 
 import { AppointmentForm } from "@/components/forms/AppointmentForm";
 import { getPatient } from "@/lib/actions/patient.actions";
-import * as Sentry from "@sentry/nextjs"
+import { redirect } from "next/navigation";
 
 const Appointment = async ({ params: { userId } }: SearchParamProps) => {
   const patient = await getPatient(userId);
+  // if (!patient) {
+    // redirect(`/patients/${userId}/register`);
+  // }
 
-    Sentry.metrics.count("user_view_new-appointment", patient.name);
   
   return (
     <div className="flex h-screen max-h-screen">

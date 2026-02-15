@@ -27,6 +27,7 @@ export const getAppointment = async (appointmentId: string) => {
     const appointment = await databases.getDocument(
       DATABASE_ID!,
       APPOINTMENT_COLLECTION_ID!,
+
       appointmentId,
     )
     return parseStringify(appointment)
@@ -72,34 +73,60 @@ export const getRecentAppointmentList = async() =>{
   }
 }
 
-export const updateAppointment = async({ appointmentId, userId, appointment, type}: UpdateAppointmentParams) => {
-  try{
+export const updateAppointment = async ({
+  appointmentId,
+  userId,
+  appointment,
+  type,
+}: UpdateAppointmentParams) => {
+  try {
+    if (!appointmentId) {
+      throw new Error("Missing appointmentId");
+    }
+
+    // 🔒 NORMALIZE RELATIONSHIPS (CRITICAL)
+    if (Array.isArray(appointment.primaryPhysician)) {
+      appointment.primaryPhysician = appointment.primaryPhysician[0];
+    }
+
+    if (Array.isArray(appointment.patient)) {
+      appointment.patient = appointment.patient[0];
+    }
+
     const updatedAppointment = await databases.updateDocument(
       DATABASE_ID!,
       APPOINTMENT_COLLECTION_ID!,
       appointmentId,
       appointment
-    )
+    );
 
-    if(!updatedAppointment){
-      throw new Error('Appointment not found')
+    if (!updatedAppointment) {
+      throw new Error("Appointment not found");
     }
 
     const smsMessage = `
-    Hi, it's CarePulse.
-    ${type === 'schedule' ? `Your appointment has been scheduled for ${formatDateTime(appointment.schedule!).dateTime} with Dr. ${appointment.primaryPhysician}`
-    : `We regret to inform you that your appointment has been cancelled. Reason: ${
-      appointment.cancellationReason}`
-    }
-    `
-    await sendSMSNotification(userId,smsMessage)
+      Hi, it's CarePulse.
+      ${
+        type === "schedule"
+          ? `Your appointment has been scheduled for ${
+              formatDateTime(appointment.schedule!).dateTime
+            } with Dr. ${appointment.primaryPhysician}`
+          : `We regret to inform you that your appointment has been cancelled. Reason: ${
+              appointment.cancellationReason
+            }`
+      }
+    `;
 
-    revalidatePath('/admin')
-    return parseStringify(updatedAppointment)
-  }catch(error){
-    console.log(error)
+    await sendSMSNotification(userId, smsMessage);
+
+    revalidatePath("/admin");
+    return parseStringify(updatedAppointment);
+  } catch (error) {
+    console.error(error);
+    throw error;
   }
-}
+};
+
 
 export const sendSMSNotification = async (userId: string, content: string) => {
   try{

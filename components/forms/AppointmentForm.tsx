@@ -71,8 +71,14 @@ export const AppointmentForm = ({
     }
 
     try {
-      if (type === "create" && patientId) {
-        const appointment = {
+      // ✅ CREATE FLOW
+      if (type === "create") {
+
+        if (!patientId) {
+          throw new Error("Patient ID is missing during create");
+        }
+
+        const appointmentData = {
           userId,
           patient: patientId,
           primaryPhysician: values.primaryPhysician,
@@ -82,7 +88,7 @@ export const AppointmentForm = ({
           note: values.note,
         };
 
-        const newAppointment = await createAppointment(appointment);
+        const newAppointment = await createAppointment(appointmentData);
 
         if (newAppointment) {
           form.reset();
@@ -90,30 +96,41 @@ export const AppointmentForm = ({
             `/patients/${userId}/new-appointment/success?appointmentId=${newAppointment.$id}`
           );
         }
-      } else {
-        const appointmentToUpdate = {
+
+        return; // ⛔ stop here
+      }
+
+      // ✅ UPDATE FLOW
+      if (type === "schedule" || type === "cancel") {
+
+        if (!appointment?.$id) {
+          throw new Error("Appointment ID required for update");
+        }
+
+        const updatedAppointment = await updateAppointment({
           userId,
-          appointmentId: appointment?.$id!,
+          appointmentId: appointment.$id,
           appointment: {
-            primaryPhysician: values.primaryPhysician,
+            primaryPhysician: Array.isArray(values.primaryPhysician) ? values.primaryPhysician[0] : values.primaryPhysician,
             schedule: new Date(values.schedule),
             status: status as Status,
             cancellationReason: values.cancellationReason,
           },
           type,
-        };
-
-        const updatedAppointment = await updateAppointment(appointmentToUpdate);
+        });
 
         if (updatedAppointment) {
-          setOpen && setOpen(false);
+          setOpen?.(false);
           form.reset();
         }
       }
+
     } catch (error) {
       console.log(error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+
   };
 
   let buttonLabel;
